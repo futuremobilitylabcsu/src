@@ -30,7 +30,7 @@
 
   <arg name="use_low_height_cropbox" default="false" description="use low height crop filter in clustering"/>
   <arg name="use_vector_map" default="true" description="use vector map in prediction"/>
-  <arg name="use_pointcloud_map" default="true" description="use pointcloud map in detection"/>
+  <arg name="use_pointcloud_map" default="false" description="use pointcloud map in detection"/>
   <arg name="use_irregular_object_detector" default="true" description="enable pipeline for small unknown object detection"/>
   <arg name="use_low_intensity_cluster_filter" default="true" description="launch low_intensity_cluster_filter in clustering"/>
   <arg name="use_image_segmentation_based_filter" default="false" description="launch image_segmentation_based_filter in clustering"/>
@@ -49,14 +49,39 @@
   <arg name="detected_objects_validation_method" default="obstacle_pointcloud" description="options: obstacle_pointcloud, occupancy_grid (must be used with laserscan_based_occupancy_grid_map)"/>
   <arg name="data_path" default="$(env HOME)/autoware_data" description="packages data and artifacts directory path"/>
   <arg name="lidar_detection_model" default="centerpoint" description="If the model name is not declared, the default model in perception.launch.xml will be used"/>
+  <arg name="image_number" default="1" description="number of object detection cameras"/>
+  <arg name="use_yolox_9class" default="true" description="launch the custom camera0 YOLOX detector"/>
+  <arg
+    name="object_recognition_detection_fusion_sync_param_path"
+    default="$(find-pkg-share autoware_launch)/config/perception/object_recognition/detection/image_projection_based_fusion/fusion_common.param.yaml"
+    description="camera-LiDAR fusion synchronization parameters; per-camera arrays must match image_number"
+  />
 
-  <arg name="traffic_light_recognition/camera_namespaces" default="[camera6, camera7]" description="choose camera which use for traffic light recognition"/>
+  <arg name="traffic_light_recognition/camera_namespaces" default="[camera7]" description="choose camera which use for traffic light recognition"/>
   <arg name="traffic_light_recognition/use_high_accuracy_detection" default="true" description="select whether to use high accuracy detector for traffic light recognition"/>
   <arg
     name="traffic_light_recognition/high_accuracy_detection_type"
     default="fine_detection"
     description="select high accuracy detector type for traffic light recognition: fine_detection or whole_image_detection"
   />
+
+  <!-- Camera0 custom object detector -->
+  <group if="$(var use_yolox_9class)">
+    <group if="$(eval &quot;'$(var perception_mode)'=='camera_lidar_fusion'&quot;)">
+      <node pkg="autoware_tensorrt_yolox" exec="autoware_tensorrt_yolox_node_exe" name="tensorrt_yolox_9class" output="screen">
+        <remap from="~/in/image" to="/sensing/camera/camera0/image_raw"/>
+        <remap from="~/out/objects" to="/perception/object_recognition/detection/rois0"/>
+        <remap from="~/out/image" to="/perception/yolox_9class/debug/image"/>
+        <param from="$(find-pkg-share autoware_tensorrt_yolox)/config/yolox_tiny.param.yaml"/>
+        <param name="model_path" value="$(var data_path)/tensorrt_yolox/yolox_s_9class_960.onnx"/>
+        <param name="label_path" value="$(find-pkg-share autoware_launch)/config/perception/object_recognition/detection/yolox_9class_autoware_labels.txt"/>
+        <param name="color_map_path" value="not-specified"/>
+        <param name="score_threshold" value="0.30"/>
+        <param name="nms_threshold" value="0.65"/>
+        <param name="build_only" value="false"/>
+      </node>
+    </group>
+  </group>
 
   <include file="$(find-pkg-share tier4_perception_launch)/launch/perception.launch.xml">
     <arg name="data_path" value="$(var data_path)"/>
@@ -65,7 +90,11 @@
     <arg name="lidar_detection_model" value="$(var lidar_detection_model)"/>
     <arg name="use_multi_channel_tracker_merger" value="$(var use_multi_channel_tracker_merger)"/>
     <arg name="vehicle_param_file" value="$(find-pkg-share $(var vehicle_model)_description)/config/vehicle_info.param.yaml"/>
-
+  
+    <!-- 260821LJH lidar camera fusion debug-->
+    <arg name="image_number" value="$(var image_number)"/>
+    <arg name="image_raw0" value="/sensing/camera/camera0/image_raw"/>
+    
     <arg name="pointcloud_container_name" value="$(var pointcloud_container_name)"/>
     <arg name="occupancy_grid_map_method" value="$(var occupancy_grid_map_method)_occupancy_grid_map"/>
     <arg name="occupancy_grid_map_updater" value="$(var occupancy_grid_map_updater)"/>
@@ -118,7 +147,7 @@
     />
     <arg
       name="object_recognition_detection_fusion_sync_param_path"
-      value="$(find-pkg-share autoware_launch)/config/perception/object_recognition/detection/image_projection_based_fusion/fusion_common.param.yaml"
+      value="$(var object_recognition_detection_fusion_sync_param_path)"
     />
     <arg
       name="object_recognition_detection_roi_cluster_fusion_param_path"
