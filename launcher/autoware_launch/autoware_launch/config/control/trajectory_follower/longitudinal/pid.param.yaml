@@ -6,7 +6,7 @@
     enable_overshoot_emergency: false
     enable_large_tracking_error_emergency: true
     enable_slope_compensation: true
-    enable_keep_stopped_until_steer_convergence: true
+    enable_keep_stopped_until_steer_convergence: false
 
     # state transition
     drive_state_stop_dist: 0.5
@@ -20,7 +20,7 @@
     # drive state
     kp: 1.0
     ki: 0.1
-    kd: 0.0
+    kd: 0.05
     max_out: 1.0
     min_out: -1.0
     max_p_effort: 1.0
